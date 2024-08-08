@@ -2,6 +2,7 @@ const router = require('express').Router();
 const pool = require('../db');
 const jwtGenerator = require('../utils/jwtGenerator');
 const authorization = require('../middleware/authorization');
+const bcrypt = require('bcrypt'); // Import bcrypt
 
 // User login route
 router.post('/login', async (req, res) => {
@@ -13,10 +14,18 @@ router.post('/login', async (req, res) => {
             return res.json({ redirectToAdminLogin: true });
         }
 
-        const memberQuery = "SELECT * FROM members WHERE fullname = $1 AND member_pass = $2";
-        const member = await pool.query(memberQuery, [username, password]);
+        const memberQuery = "SELECT * FROM members WHERE fullname = $1";
+        const member = await pool.query(memberQuery, [username]);
 
         if (member.rowCount === 0) {
+            return res.status(401).json("Password or username is incorrect");
+        }
+        
+        const user = member.rows[0];
+        
+        // Compare the hashed password
+        const validPass = await bcrypt.compare(password, user.member_pass);
+        if (!validPass) {
             return res.status(401).json("Password or username is incorrect");
         }
 
@@ -48,7 +57,8 @@ router.post('/admin-login', async (req, res) => {
         }
 
         // Verify password
-        if (user.member_pass !== password) {
+        const validPass = await bcrypt.compare(password, user.member_pass);
+        if (!validPass) {
             return res.status(401).json("Password or username is incorrect");
         }
 
@@ -61,6 +71,7 @@ router.post('/admin-login', async (req, res) => {
         res.status(500).send("Server Error");
     }
 });
+
 router.get('/is-verify', authorization, (req, res) => {
     // If the token is valid, req.user should be populated by the authorization middleware
     if (req.user) {

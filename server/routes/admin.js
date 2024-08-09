@@ -2,15 +2,15 @@
 const router = require('express').Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
+const authorization = require('../middleware/authorization');
 
 // Route to get admin data
-router.get('/', async (req, res) => {
+router.get('/',authorization, async (req, res) => {
   try {
     // Adjust query based on the actual needs and database schema
     const admin = await pool.query(
-      "SELECT * FROM members WHERE admin = true"
+      "SELECT * FROM members WHERE fullname=$1 and admin = true", [req.user.fullname]
     );
-
     if (admin.rowCount === 0) {
       return res.status(404).json("Admin not found");
     }
@@ -21,6 +21,8 @@ router.get('/', async (req, res) => {
     res.status(500).json("Server Error");
   }
 });
+
+
 
 // Route to register a new member
 router.post('/register', async (req, res) => {
@@ -43,6 +45,18 @@ router.post('/register', async (req, res) => {
 
     res.json(newUser.rows[0]);
 
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send("Server Error");
+  }
+});
+router.get('/allmembers', async (req, res) => {
+  try {
+    const users = await pool.query('SELECT * FROM members');
+    if (users.rowCount === 0) {
+      return res.status(404).send("There are no members");
+    }
+    res.json(users.rows);
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Server Error");

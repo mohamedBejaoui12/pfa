@@ -80,5 +80,26 @@ router.get('/is-verify', authorization, (req, res) => {
         res.json(false);
     }
 });
+// GET endpoint to retrieve member CIN
+router.get('/get-member-cin', authorization, async (req, res) => {
+    try {
+      // Assuming req.user is set by the authorization middleware
+      const username = req.user.fullname;  // Adjust according to how req.user is set up
+      
+      const memberQuery = "SELECT member_cin FROM members WHERE fullname = $1";
+      const member = await pool.query(memberQuery, [username]);
+  
+      if (member.rowCount === 0) {
+        return res.status(404).json("User not found");
+      }
+  
+      const memberCIN = member.rows[0].member_cin;
+      res.json({ member_cin: memberCIN });
+    } catch (error) {
+      console.error(error.message);
+      res.status(500).send("Server Error");
+    }
+  });
+  
 
 module.exports = router;

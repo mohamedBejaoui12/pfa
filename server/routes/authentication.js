@@ -14,7 +14,7 @@ router.post('/login', async (req, res) => {
             return res.json({ redirectToAdminLogin: true });
         }
 
-        const memberQuery = "SELECT * FROM members WHERE fullname = $1";
+        const memberQuery = "SELECT * FROM members WHERE fullname = $1 and member_etat=true";
         const member = await pool.query(memberQuery, [username]);
 
         if (member.rowCount === 0) {
@@ -23,7 +23,6 @@ router.post('/login', async (req, res) => {
         
         const user = member.rows[0];
         
-        // Compare the hashed password
         const validPass = await bcrypt.compare(password, user.member_pass);
         if (!validPass) {
             return res.status(401).json("Password or username is incorrect");
@@ -38,11 +37,11 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Admin login route
+
 router.post('/admin-login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        const memberQuery = "SELECT * FROM members WHERE fullname = $1";
+        const memberQuery = "SELECT * FROM members WHERE fullname = $1 and member_etat= true";
         const member = await pool.query(memberQuery, [username]);
 
         if (member.rowCount === 0) {
@@ -51,16 +50,20 @@ router.post('/admin-login', async (req, res) => {
 
         const user = member.rows[0];
 
-        // Check if the user is an admin
+
         if (!user.admin) {
             return res.status(403).json("Access denied");
         }
 
-        // Verify password
+
         const validPass = await bcrypt.compare(password, user.member_pass);
         if (!validPass) {
             return res.status(401).json("Password or username is incorrect");
         }
+        await pool.query(
+            "INSERT INTO journal (member_cin, action, action_time) VALUES ($1, $2, NOW())",
+            [user.member_cin, 'Admin Loged In']
+          );
 
         // Generate a token
         const token = jwtGenerator(username);
@@ -73,14 +76,14 @@ router.post('/admin-login', async (req, res) => {
 });
 
 router.get('/is-verify', authorization, (req, res) => {
-    // If the token is valid, req.user should be populated by the authorization middleware
+    
     if (req.user) {
         res.json(true);
     } else {
         res.json(false);
     }
 });
-// GET endpoint to retrieve member CIN
+
 router.get('/get-member-cin', authorization, async (req, res) => {
     try {
       // Assuming req.user is set by the authorization middleware
